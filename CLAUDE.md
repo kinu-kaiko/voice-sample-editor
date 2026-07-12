@@ -51,6 +51,16 @@ GUIで加工して素材ごとに個別ファイルへ書き出すツール。
   `$env:Path += ";C:\Program Files\nodejs"` を先に実行する
 - devサーバー: `.claude/launch.json` の `dev` 構成で起動（内部で上記PATH補正済み）
 
+## 公開先（GitHub Pages）
+
+- **公開URL: https://kinu-kaiko.github.io/voice-sample-editor/**
+- リポジトリ: https://github.com/kinu-kaiko/voice-sample-editor （公開）
+- `master` へpushすると GitHub Actions（`.github/workflows/deploy.yml`）が自動でビルド&デプロイする。
+  手動デプロイ作業は不要
+- Pages機能の有効化（`build_type: workflow`）はAPIで実施済み。
+  ワークフロー内の`configure-pages`に`enablement: true`を付けるとGITHUB_TOKENの権限不足で失敗するので付けないこと
+- 認証はGit Credential Manager保存済みの資格情報でpush可能（gh CLIは未インストール）
+
 ## 実装状況（2026-07-12 MVP完成・動作確認済み）
 
 - 読み込み→無音検出→リージョン編集→文字起こし命名→フォルダ選択WAV書き出し まで一通り動作
