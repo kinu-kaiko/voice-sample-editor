@@ -1,0 +1,249 @@
+.app {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px 20px 80px;
+}
+
+header h1 {
+  margin: 0;
+  font-size: 24px;
+  color: var(--accent);
+}
+
+.subtitle {
+  margin: 4px 0 20px;
+  color: var(--text-dim);
+}
+
+h2 {
+  margin: 0 0 12px;
+  font-size: 16px;
+}
+
+/* ファイル読み込み */
+.drop-zone {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px;
+  border: 2px dashed var(--border);
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+
+.file-button {
+  display: inline-block;
+  padding: 8px 18px;
+  background: var(--accent-dim);
+  color: #fff;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.file-button:hover {
+  background: var(--accent);
+  color: #0f172a;
+}
+
+.drop-hint {
+  color: var(--text-dim);
+  overflow-wrap: anywhere;
+}
+
+/* 波形 */
+.waveform-section {
+  margin-bottom: 20px;
+}
+
+.waveform {
+  background: var(--panel);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.transport {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+/* パネル */
+.panels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+@media (max-width: 800px) {
+  .panels {
+    grid-template-columns: 1fr;
+  }
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.panels .panel {
+  margin-bottom: 0;
+}
+
+.slider-label {
+  display: block;
+  margin-bottom: 10px;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.slider-label input[type='range'] {
+  display: block;
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.row {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.row label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+select {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+}
+
+.hint {
+  color: var(--text-dim);
+  font-size: 12px;
+  margin: 8px 0 0;
+}
+
+/* ボタン */
+button {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 14px;
+}
+
+button:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+button.primary {
+  background: var(--accent-dim);
+  border-color: var(--accent-dim);
+  color: #fff;
+}
+
+button.primary:hover:not(:disabled) {
+  background: var(--accent);
+  color: #0f172a;
+}
+
+/* セグメント一覧 */
+.segments-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.export-message {
+  color: var(--accent);
+  margin: 8px 0 0;
+}
+
+.segment-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+}
+
+.segment-table th {
+  text-align: left;
+  color: var(--text-dim);
+  font-size: 12px;
+  font-weight: normal;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.segment-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.mono {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.name-input {
+  width: 100%;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.name-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.row-actions {
+  white-space: nowrap;
+}
+
+.row-actions button {
+  padding: 4px 10px;
+  margin-left: 4px;
+}
+
+/* wavesurferのregion番号ラベル */
+.waveform ::part(region-content) {
+  color: #f0abfc;
+  font-size: 12px;
+  padding: 2px 6px;
+}
