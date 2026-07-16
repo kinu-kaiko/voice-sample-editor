@@ -71,6 +71,8 @@ export default function App() {
   const [numberPrefix, setNumberPrefix] = useState(true)
 
   const [zoom, setZoom] = useState(0)
+  /** ズームのデバウンス用タイマー。連続zoom()は描画チャンクの残留バグを起こすため1回にまとめる */
+  const zoomTimerRef = useRef<number | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [modelProgress, setModelProgress] = useState<ModelProgress | null>(null)
   const [isTranscribing, setIsTranscribing] = useState(false)
@@ -523,7 +525,15 @@ export default function App() {
                 onChange={(e) => {
                   const v = Number(e.target.value)
                   setZoom(v)
-                  wsRef.current?.zoom(zoomToPxPerSec(v))
+                  // ドラッグ中の連続zoomは古い倍率のチャンクが波形に残る
+                  // 描画バグを起こすため、止まってから1回だけ実行する
+                  if (zoomTimerRef.current !== null) {
+                    clearTimeout(zoomTimerRef.current)
+                  }
+                  zoomTimerRef.current = window.setTimeout(() => {
+                    zoomTimerRef.current = null
+                    wsRef.current?.zoom(zoomToPxPerSec(v))
+                  }, 150)
                 }}
               />
             </label>
