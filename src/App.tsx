@@ -6,7 +6,7 @@ import RegionsPlugin, {
 import { detectSegments, type SilenceParams } from './audio/silence'
 import { encodeWavSegment } from './audio/wav'
 import { transcribeSegment, type ModelProgress } from './audio/transcribe'
-import { sanitizeFilename } from './utils/filename'
+import { buildExportNames } from './utils/filename'
 import './App.css'
 
 interface SegmentItem {
@@ -51,12 +51,15 @@ export default function App() {
   const [thresholdDb, setThresholdDb] = useState(-40)
   const [minSilenceMs, setMinSilenceMs] = useState(300)
   const [minSegmentMs, setMinSegmentMs] = useState(200)
-  const [paddingMs, setPaddingMs] = useState(60)
+  const [padStartMs, setPadStartMs] = useState(60)
+  const [padEndMs, setPadEndMs] = useState(60)
   // 書き出し設定
   const [fadeInMs, setFadeInMs] = useState(10)
   const [fadeOutMs, setFadeOutMs] = useState(30)
   const [bitDepth, setBitDepth] = useState<16 | 24>(24)
   const [language, setLanguage] = useState('ja')
+  /** ファイル名の先頭にゼロ埋め連番を付けるか */
+  const [numberPrefix, setNumberPrefix] = useState(true)
 
   const [zoom, setZoom] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)
@@ -145,7 +148,8 @@ export default function App() {
       thresholdDb,
       minSilenceMs,
       minSegmentMs,
-      paddingMs,
+      padStartMs,
+      padEndMs,
     }
     const timer = setTimeout(() => {
       const detected = detectSegments(buffer, params)
@@ -174,7 +178,7 @@ export default function App() {
       setExportMessage(null)
     }, 200)
     return () => clearTimeout(timer)
-  }, [audioVersion, thresholdDb, minSilenceMs, minSegmentMs, paddingMs])
+  }, [audioVersion, thresholdDb, minSilenceMs, minSegmentMs, padStartMs, padEndMs])
 
   const loadFile = useCallback(async (file: File) => {
     const ws = wsRef.current
@@ -303,12 +307,14 @@ export default function App() {
     setExportMessage(null)
     try {
       const items = [...segmentsRef.current].sort((a, b) => a.start - b.start)
+      const filenames = buildExportNames(
+        items.map((s) => s.name),
+        numberPrefix,
+      )
       const names: string[] = []
       for (let i = 0; i < items.length; i++) {
         const seg = items[i]
-        const num = String(i + 1).padStart(2, '0')
-        const base = sanitizeFilename(seg.name, 'sample')
-        const filename = `${num}_${base}.wav`
+        const filename = filenames[i]
         const data = encodeWavSegment(buffer, {
           start: seg.start,
           end: seg.end,
@@ -329,7 +335,7 @@ export default function App() {
     } finally {
       setIsExporting(false)
     }
-  }, [bitDepth, fadeInMs, fadeOutMs, isExporting])
+  }, [bitDepth, fadeInMs, fadeOutMs, isExporting, numberPrefix])
 
   const hasAudio = audioVersion > 0 && fileName !== null
 
@@ -435,14 +441,25 @@ export default function App() {
               />
             </label>
             <label className="slider-label">
-              前後余白 {paddingMs} ms
+              前余白 {padStartMs} ms
               <input
                 type="range"
                 min={0}
                 max={500}
                 step={10}
-                value={paddingMs}
-                onChange={(e) => setPaddingMs(Number(e.target.value))}
+                value={padStartMs}
+                onChange={(e) => setPadStartMs(Number(e.target.value))}
+              />
+            </label>
+            <label className="slider-label">
+              後余白 {padEndMs} ms
+              <input
+                type="range"
+                min={0}
+                max={500}
+                step={10}
+                value={padEndMs}
+                onChange={(e) => setPadEndMs(Number(e.target.value))}
               />
             </label>
             <p className="hint">
@@ -496,6 +513,14 @@ export default function App() {
                 </select>
               </label>
             </div>
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={numberPrefix}
+                onChange={(e) => setNumberPrefix(e.target.checked)}
+              />
+              ファイル名に通し番号を付ける (01_名前.wav のようにゼロ埋めで名前順に並ぶ)
+            </label>
           </section>
         </div>
       )}
@@ -558,7 +583,11 @@ export default function App() {
                           ? '文字起こし中...'
                           : seg.status === 'error'
                             ? '文字起こし失敗 (手入力してください)'
-                            : `sample (→ ${String(i + 1).padStart(2, '0')}_sample.wav)`
+                            : `sample (→ ${
+                              numberPrefix
+                                ? `${String(i + 1).padStart(Math.max(2, String(segments.length).length), '0')}_`
+                                : ''
+                            }sample.wav)`
                       }
                       onChange={(e) => updateName(seg.id, e.target.value)}
                     />

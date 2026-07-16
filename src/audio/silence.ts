@@ -7,8 +7,10 @@ export interface SilenceParams {
   minSilenceMs: number
   /** これより短い区間はノイズとして無視する (ms) */
   minSegmentMs: number
-  /** 検出区間の前後に付ける余白 (ms) */
-  paddingMs: number
+  /** 検出区間の前に付ける余白 (ms) */
+  padStartMs: number
+  /** 検出区間の後に付ける余白 (ms) */
+  padEndMs: number
 }
 
 export interface DetectedSegment {
@@ -72,15 +74,16 @@ export function detectSegments(
   // minSegmentMs 未満の区間を除去し、秒に変換してパディングを付ける
   const minSegWindows = Math.round(params.minSegmentMs / WINDOW_MS)
   const winSec = win / sampleRate
-  const padSec = params.paddingMs / 1000
+  const padStartSec = params.padStartMs / 1000
+  const padEndSec = params.padEndMs / 1000
   const durationSec = length / sampleRate
 
   const result: DetectedSegment[] = []
   const kept = merged.filter((s) => s.endW - s.startW >= minSegWindows)
   for (let i = 0; i < kept.length; i++) {
     const seg = kept[i]
-    let start = seg.startW * winSec - padSec
-    let end = seg.endW * winSec + padSec
+    let start = seg.startW * winSec - padStartSec
+    let end = seg.endW * winSec + padEndSec
     // パディングが隣の区間に食い込まないよう、間の中点まででクランプ
     if (i > 0) {
       const prevEnd = kept[i - 1].endW * winSec
