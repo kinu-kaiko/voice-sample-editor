@@ -51,9 +51,14 @@ h2 {
   overflow-wrap: anywhere;
 }
 
-/* 波形 */
+/* 波形: スクロールしても画面上部に固定して素材一覧と見比べられるようにする */
 .waveform-section {
-  margin-bottom: 20px;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--bg);
+  padding: 8px 0;
+  margin-bottom: 12px;
 }
 
 .waveform {
@@ -203,13 +208,23 @@ button.primary:hover:not(:disabled) {
   margin: 8px 0 0;
 }
 
-.segment-table {
-  width: 100%;
-  border-collapse: collapse;
+/* 素材一覧は一覧内でスクロールさせ、波形が隠れないようにする */
+.segment-scroll {
+  max-height: 45vh;
+  overflow-y: auto;
   margin-top: 12px;
 }
 
+.segment-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
 .segment-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--panel);
   text-align: left;
   color: var(--text-dim);
   font-size: 12px;

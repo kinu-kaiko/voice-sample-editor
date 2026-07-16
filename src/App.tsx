@@ -371,39 +371,6 @@ export default function App() {
         </span>
       </section>
 
-      <section className="waveform-section">
-        <div ref={containerRef} className="waveform" />
-        {hasAudio && (
-          <div className="transport">
-            <button
-              onClick={() => {
-                stopAtRef.current = null
-                wsRef.current?.playPause()
-              }}
-            >
-              {isPlaying ? '⏸ 停止' : '▶ 再生'}
-            </button>
-            <label className="slider-label">
-              ズーム
-              <input
-                type="range"
-                min={0}
-                max={500}
-                value={zoom}
-                onChange={(e) => {
-                  const v = Number(e.target.value)
-                  setZoom(v)
-                  wsRef.current?.zoom(v)
-                }}
-              />
-            </label>
-            <span className="hint">
-              波形上をドラッグで区間追加 / 区間の端をドラッグで微調整
-            </span>
-          </div>
-        )}
-      </section>
-
       {hasAudio && (
         <div className="panels">
           <section className="panel">
@@ -525,6 +492,39 @@ export default function App() {
         </div>
       )}
 
+      <section className="waveform-section">
+        <div ref={containerRef} className="waveform" />
+        {hasAudio && (
+          <div className="transport">
+            <button
+              onClick={() => {
+                stopAtRef.current = null
+                wsRef.current?.playPause()
+              }}
+            >
+              {isPlaying ? '⏸ 停止' : '▶ 再生'}
+            </button>
+            <label className="slider-label">
+              ズーム
+              <input
+                type="range"
+                min={0}
+                max={500}
+                value={zoom}
+                onChange={(e) => {
+                  const v = Number(e.target.value)
+                  setZoom(v)
+                  wsRef.current?.zoom(v)
+                }}
+              />
+            </label>
+            <span className="hint">
+              波形上をドラッグで区間追加 / 区間の端をドラッグで微調整
+            </span>
+          </div>
+        )}
+      </section>
+
       {hasAudio && (
         <section className="panel">
           <div className="segments-header">
@@ -555,6 +555,7 @@ export default function App() {
             </p>
           )}
           {exportMessage && <p className="export-message">{exportMessage}</p>}
+          <div className="segment-scroll">
           <table className="segment-table">
             <thead>
               <tr>
@@ -604,6 +605,7 @@ export default function App() {
               ))}
             </tbody>
           </table>
+          </div>
         </section>
       )}
     </div>
