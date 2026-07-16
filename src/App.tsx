@@ -22,6 +22,15 @@ interface SegmentItem {
 
 const REGION_COLOR = 'rgba(56, 189, 248, 0.18)'
 
+// ズームスライダー(0-100)を対数スケールでpx/秒に変換する
+// 0は全体表示、最大で5000px/秒まで拡大して波形を詳細に確認できる
+const ZOOM_MIN_PX = 10
+const ZOOM_MAX_PX = 5000
+function zoomToPxPerSec(v: number): number {
+  if (v <= 0) return 0
+  return Math.round(ZOOM_MIN_PX * Math.pow(ZOOM_MAX_PX / ZOOM_MIN_PX, v / 100))
+}
+
 function formatTime(sec: number): string {
   const m = Math.floor(sec / 60)
   const s = sec - m * 60
@@ -505,16 +514,16 @@ export default function App() {
               {isPlaying ? '⏸ 停止' : '▶ 再生'}
             </button>
             <label className="slider-label">
-              ズーム
+              ズーム {zoom <= 0 ? '(全体)' : `${zoomToPxPerSec(zoom)}px/秒`}
               <input
                 type="range"
                 min={0}
-                max={500}
+                max={100}
                 value={zoom}
                 onChange={(e) => {
                   const v = Number(e.target.value)
                   setZoom(v)
-                  wsRef.current?.zoom(v)
+                  wsRef.current?.zoom(zoomToPxPerSec(v))
                 }}
               />
             </label>
