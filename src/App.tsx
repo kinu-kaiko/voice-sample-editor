@@ -7,6 +7,11 @@ import { detectSegments, type SilenceParams } from './audio/silence'
 import { encodeWavSegment } from './audio/wav'
 import { transcribeSegment, type ModelProgress } from './audio/transcribe'
 import { buildExportNames } from './utils/filename'
+import {
+  parseProject,
+  serializeProject,
+  type ProjectSegment,
+} from './utils/project'
 import './App.css'
 
 interface SegmentItem {
@@ -52,6 +57,12 @@ export default function App() {
 
   const [fileName, setFileName] = useState<string | null>(null)
   const [audioVersion, setAudioVersion] = useState(0)
+  /** 読み込み中の音声ファイルの情報 (編集状況ファイルとの対応チェック用) */
+  const fileMetaRef = useRef<{ name: string; size: number } | null>(null)
+  /** 編集状況ファイルから復元するセグメント。セットしてrestoreTickを進めると検出の代わりに適用される */
+  const pendingRestoreRef = useRef<ProjectSegment[] | null>(null)
+  const [restoreTick, setRestoreTick] = useState(0)
+  const projectInputRef = useRef<HTMLInputElement>(null)
   const [segments, setSegments] = useState<SegmentItem[]>([])
   const segmentsRef = useRef<SegmentItem[]>([])
   segmentsRef.current = segments
@@ -151,6 +162,7 @@ export default function App() {
   }, [])
 
   // 無音検出 (パラメータ変更時は少し待ってから再実行)
+  // 編集状況ファイルの復元中 (pendingRestoreRefあり) は検出せず保存内容を適用する
   useEffect(() => {
     const buffer = audioBufferRef.current
     const regions = regionsRef.current
@@ -163,10 +175,18 @@ export default function App() {
       padEndMs,
     }
     const timer = setTimeout(() => {
-      const detected = detectSegments(buffer, params)
+      const restore = pendingRestoreRef.current
+      pendingRestoreRef.current = null
+      const source: ProjectSegment[] =
+        restore ??
+        detectSegments(buffer, params).map((seg) => ({
+          ...seg,
+          name: '',
+          nameEdited: false,
+        }))
       isRebuildingRef.current = true
       regions.clearRegions()
-      const items: SegmentItem[] = detected.map((seg, i) => {
+      const items: SegmentItem[] = source.map((seg, i) => {
         const region = regions.addRegion({
           start: seg.start,
           end: seg.end,
@@ -179,17 +199,25 @@ export default function App() {
           id: region.id,
           start: seg.start,
           end: seg.end,
-          name: '',
-          nameEdited: false,
+          name: seg.name,
+          nameEdited: seg.nameEdited,
           status: 'idle',
         }
       })
       isRebuildingRef.current = false
       setSegments(items)
-      setExportMessage(null)
+      if (!restore) setExportMessage(null)
     }, 200)
     return () => clearTimeout(timer)
-  }, [audioVersion, thresholdDb, minSilenceMs, minSegmentMs, padStartMs, padEndMs])
+  }, [
+    audioVersion,
+    thresholdDb,
+    minSilenceMs,
+    minSegmentMs,
+    padStartMs,
+    padEndMs,
+    restoreTick,
+  ])
 
   const loadFile = useCallback(async (file: File) => {
     const ws = wsRef.current
@@ -198,14 +226,26 @@ export default function App() {
     const url = URL.createObjectURL(file)
     objectUrlRef.current = url
     setFileName(file.name)
+    fileMetaRef.current = { name: file.name, size: file.size }
     setSegments([])
     setExportMessage(null)
     try {
       // 加工用にフル品質でデコード (レートはAudioContextの既定 = ハードウェアレート)
       const arrayBuffer = await file.arrayBuffer()
       audioCtxRef.current ??= new AudioContext()
-      audioBufferRef.current =
-        await audioCtxRef.current.decodeAudioData(arrayBuffer)
+      const buffer = await audioCtxRef.current.decodeAudioData(arrayBuffer)
+      audioBufferRef.current = buffer
+      // normalizeは描画チャンクごとに個別適用されるため、全体のピークを
+      // maxPeakで固定しないと高ズーム時に無音部分が増幅されて偽の波形が出る
+      let peak = 0
+      for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
+        const data = buffer.getChannelData(ch)
+        for (let i = 0; i < data.length; i++) {
+          const a = Math.abs(data[i])
+          if (a > peak) peak = a
+        }
+      }
+      ws.setOptions({ maxPeak: peak || 1 })
       // 波形表示・再生はwavesurferに任せる
       await ws.load(url)
       setAudioVersion((v) => v + 1)
@@ -347,6 +387,127 @@ export default function App() {
       setIsExporting(false)
     }
   }, [bitDepth, fadeInMs, fadeOutMs, isExporting, numberPrefix])
+
+  // 編集状況 (区間・名前・設定) をJSONファイルへ保存する
+  const handleSaveProject = useCallback(async () => {
+    const meta = fileMetaRef.current
+    if (!meta) return
+    const json = serializeProject(
+      meta,
+      {
+        thresholdDb,
+        minSilenceMs,
+        minSegmentMs,
+        padStartMs,
+        padEndMs,
+        fadeInMs,
+        fadeOutMs,
+        bitDepth,
+        language,
+        numberPrefix,
+      },
+      [...segmentsRef.current]
+        .sort((a, b) => a.start - b.start)
+        .map((s) => ({
+          start: s.start,
+          end: s.end,
+          name: s.name,
+          nameEdited: s.nameEdited,
+        })),
+    )
+    const suggestedName = meta.name.replace(/\.[^.]+$/, '') + '.vse.json'
+    try {
+      if ('showSaveFilePicker' in window) {
+        const handle = await window.showSaveFilePicker({
+          suggestedName,
+          types: [
+            {
+              description: 'Voice Sample Editor 編集状況',
+              accept: { 'application/json': ['.json'] },
+            },
+          ],
+        })
+        const writable = await handle.createWritable()
+        await writable.write(json)
+        await writable.close()
+      } else {
+        // File System Access API非対応ブラウザはダウンロードで代替
+        const a = document.createElement('a')
+        a.href = URL.createObjectURL(
+          new Blob([json], { type: 'application/json' }),
+        )
+        a.download = suggestedName
+        a.click()
+        URL.revokeObjectURL(a.href)
+      }
+      setExportMessage('編集状況を保存しました')
+    } catch {
+      // ユーザーがキャンセル
+    }
+  }, [
+    thresholdDb,
+    minSilenceMs,
+    minSegmentMs,
+    padStartMs,
+    padEndMs,
+    fadeInMs,
+    fadeOutMs,
+    bitDepth,
+    language,
+    numberPrefix,
+  ])
+
+  // 編集状況ファイルを読み込んで区間・名前・設定を復元する
+  const handleLoadProject = useCallback(async (file: File) => {
+    const buffer = audioBufferRef.current
+    if (!buffer) {
+      alert('先に音声ファイルを開いてから、編集状況を読み込んでください')
+      return
+    }
+    try {
+      const project = parseProject(await file.text())
+      const meta = fileMetaRef.current
+      if (
+        meta &&
+        (project.audio.name !== meta.name || project.audio.size !== meta.size)
+      ) {
+        const ok = confirm(
+          `この編集状況は別の音声ファイル用に保存されたもののようです。\n` +
+            `保存時: ${project.audio.name}\n` +
+            `現在: ${meta.name}\n続行しますか?`,
+        )
+        if (!ok) return
+      }
+      const duration = buffer.length / buffer.sampleRate
+      pendingRestoreRef.current = project.segments
+        .map((s) => ({
+          ...s,
+          start: Math.max(0, Math.min(duration, s.start)),
+          end: Math.max(0, Math.min(duration, s.end)),
+        }))
+        .filter((s) => s.end > s.start)
+      const st = project.settings
+      setThresholdDb(st.thresholdDb)
+      setMinSilenceMs(st.minSilenceMs)
+      setMinSegmentMs(st.minSegmentMs)
+      setPadStartMs(st.padStartMs)
+      setPadEndMs(st.padEndMs)
+      setFadeInMs(st.fadeInMs)
+      setFadeOutMs(st.fadeOutMs)
+      setBitDepth(st.bitDepth)
+      setLanguage(st.language)
+      setNumberPrefix(st.numberPrefix)
+      setRestoreTick((t) => t + 1)
+      setExportMessage('編集状況を読み込みました')
+    } catch (err) {
+      console.error(err)
+      alert(
+        err instanceof Error
+          ? `編集状況の読み込みに失敗しました: ${err.message}`
+          : '編集状況の読み込みに失敗しました',
+      )
+    }
+  }, [])
 
   const hasAudio = audioVersion > 0 && fileName !== null
 
@@ -555,6 +716,30 @@ export default function App() {
               >
                 {isTranscribing ? '文字起こし中...' : '🎙 文字起こしで命名'}
               </button>
+              <button
+                title="区間・名前・設定をJSONファイルへ保存します"
+                onClick={handleSaveProject}
+                disabled={segments.length === 0}
+              >
+                💾 編集状況を保存
+              </button>
+              <button
+                title="保存した編集状況を読み込みます (同じ音声ファイルを開いた状態で)"
+                onClick={() => projectInputRef.current?.click()}
+              >
+                📂 編集状況を読み込み
+              </button>
+              <input
+                ref={projectInputRef}
+                type="file"
+                accept="application/json,.json"
+                hidden
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file) void handleLoadProject(file)
+                  e.target.value = ''
+                }}
+              />
               <button
                 className="primary"
                 onClick={handleExport}

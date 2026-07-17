@@ -70,6 +70,8 @@ GUIで加工して素材ごとに個別ファイルへ書き出すツール。
   - `src/audio/wav.ts` — フェード適用 + WAV(16/24bit)エンコード
   - `src/audio/transcribe.ts` — Whisper文字起こし（動的import・WebGPU→WASMフォールバック）
   - `src/utils/filename.ts` — ファイル名サニタイズ
+  - `src/utils/project.ts` — 編集状況(.vse.json)の保存・読み込み。
+    音声ファイル本体は含まず、名前+サイズで対応チェックする
 
 ### 実装上の注意（ハマりどころ）
 
@@ -77,6 +79,11 @@ GUIで加工して素材ごとに個別ファイルへ書き出すツール。
   加工・書き出しには使わず、`AudioContext.decodeAudioData`で自前デコードしたバッファを使うこと
 - Regionsプラグインの`region-out`イベントは境界の浮動小数点誤差で再生開始直後に誤発火する。
   区間再生の終端停止は`timeupdate`で自前判定している
+- **`normalize: true`は描画チャンク単位で個別に正規化される**(高ズームで波形が複数canvasに
+  分割されると、無音チャンクのノイズフロアが最大増幅されて偽の波形が表示される)。
+  読み込み時に全体ピークを計算して`maxPeak`オプションで固定することで回避している
+- `ws.zoom()`をスライダードラッグ中に連続実行すると古い倍率のチャンクが残留する。
+  150msデバウンスで1回にまとめている
 - テスト音声はWindows TTSで生成できる（System.Speech + SSMLの`<break>`で無音区間入り）。
   Haruka（ja-JP）がインストール済み
 
